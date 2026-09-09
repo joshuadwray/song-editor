@@ -1,0 +1,71 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; the newest push wins.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test the edit model
+        run: npm run test:model
+
+      # The browser suite is the one that catches real breakage, so it gates
+      # the deploy too. Ubuntu runners ship Chrome.
+      - name: Test in a real browser
+        run: npm run test:browser
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      # Checks the real build: service worker scope, manifest, offline, and
+      # that the dev-only test seam is stripped.
+      - name: Test the production build
+        run: npm run test:prod
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      # Project sites are served from /<repo>/, so assets must be built for
+      # that path or every one of them 404s. Derived from the repo name so
+      # renaming the repository cannot break the build.
+      - name: Build
+        run: npx vite build --base=/${{ github.event.repository.name }}/
+
+      - run: touch dist/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,473 @@
+/* Audacity's light chrome, deliberately: the point is that it looks familiar. */
+
+:root {
+  --chrome: #d9d9de;
+  --chrome-dark: #c2c2c9;
+  --chrome-light: #ecedf0;
+  --text: #1e1e28;
+  --text-dim: #62626e;
+  --accent: #3232c8;
+  --border: #a8a8b4;
+  --danger: #b02020;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--chrome);
+  overflow: hidden;
+  /* Dragging out a selection should never start a text selection. */
+  user-select: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ------------------------------------------------------------------ menubar */
+
+.menubar {
+  display: flex;
+  background: var(--chrome-light);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.menu { position: relative; }
+
+.menu-title {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+
+.menu-title:hover, .menu-title.open {
+  background: var(--accent);
+  color: #fff;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 230px;
+  background: var(--chrome-light);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.22);
+  z-index: 50;
+  padding: 4px 0;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.menu-item:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.menu-item:disabled { color: #a0a0aa; }
+.menu-shortcut { color: var(--text-dim); }
+.menu-item:hover:not(:disabled) .menu-shortcut { color: #d8d8f0; }
+.menu-separator { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ------------------------------------------------------------------ toolbar */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 6px 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.toolbar-group { display: flex; align-items: center; gap: 4px; }
+
+.toolbar button {
+  min-width: 34px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--chrome-light);
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toolbar button:hover:not(:disabled) { background: #fff; }
+.toolbar button:disabled { opacity: 0.4; cursor: default; }
+.toolbar button.play { color: #1a7a1a; }
+
+.readout { gap: 8px; font-variant-numeric: tabular-nums; }
+.readout-label { color: var(--text-dim); }
+.readout-value {
+  background: #1e1e28;
+  color: #7cf07c;
+  padding: 3px 8px;
+  border-radius: 3px;
+  min-width: 70px;
+  display: inline-block;
+}
+
+/* ----------------------------------------------------------------- timeline */
+
+.timeline {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--chrome);
+}
+
+.timeline-header { display: flex; flex: none; }
+.panel-spacer { flex: none; background: var(--chrome); border-right: 1px solid var(--border); }
+.ruler-wrap { flex: 1; overflow: hidden; cursor: pointer; }
+.ruler-wrap canvas { display: block; }
+
+.timeline-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panel-column { flex: none; border-right: 1px solid var(--border); }
+
+.lanes-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  cursor: text;
+}
+
+.lane-canvas { display: block; border-bottom: 1px solid var(--border); }
+
+.overlay-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hscroll {
+  flex: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  border-top: 1px solid var(--border);
+  background: var(--chrome-light);
+}
+
+/* ------------------------------------------------------------- track panels */
+
+.track-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 6px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+}
+
+.track-panel.focused { background: #cfcfe4; }
+
+.track-panel-top { display: flex; align-items: center; gap: 4px; }
+
+.track-name {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  padding: 2px 3px;
+  border-radius: 3px;
+}
+
+.track-name:hover, .track-name:focus {
+  border-color: var(--border);
+  background: #fff;
+  outline: none;
+}
+
+.track-close {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--chrome-light);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.track-close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+.track-buttons { display: flex; gap: 4px; }
+
+.track-buttons button {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--chrome-light);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.track-buttons button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.slider-row input { flex: 1; min-width: 0; height: 14px; }
+
+/* -------------------------------------------------------------- empty state */
+
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #f4f4f7;
+  color: var(--text-dim);
+}
+
+.empty-state button {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+
+.empty-state button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.empty-state p { margin: 0; }
+.empty-state .hint { font-size: 11px; }
+
+/* ---------------------------------------------------------- status and error */
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  background: var(--chrome-light);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  flex: none;
+}
+
+.statusbar .spacer { flex: 1; }
+.statusbar .dim { color: var(--text-dim); }
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #fde8e8;
+  border-top: 1px solid var(--danger);
+  color: #6a1414;
+  flex: none;
+}
+
+.error-banner button {
+  margin-left: auto;
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.busy-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(30 30 40 / 0.35);
+  color: #fff;
+  font-size: 15px;
+  z-index: 100;
+}
+
+/* Overlay scrollbars fade out when idle, which hides the main way of moving
+   along a long recording. Force a permanently visible one. */
+.hscroll::-webkit-scrollbar { height: 13px; }
+.hscroll::-webkit-scrollbar-track { background: var(--chrome-dark); }
+.hscroll::-webkit-scrollbar-thumb {
+  background: #8f8f9e;
+  border: 2px solid var(--chrome-dark);
+  border-radius: 7px;
+}
+.hscroll::-webkit-scrollbar-thumb:hover { background: #70707f; }
+
+.statusbar .mem { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.statusbar .mem.warn { color: var(--danger); font-weight: 600; }
+
+/* ---------------------------------------------------------------- tool state */
+
+.toolbar-group.tools button {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.toolbar-group.tools button.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* The pointer should say which tool is live before she clicks anything. */
+.lanes-wrap.tool-select { cursor: text; }
+.lanes-wrap.tool-shift { cursor: grab; }
+.lanes-wrap.tool-shift:active { cursor: grabbing; }
+
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 220px;
+}
+
+/* ------------------------------------------------------- projects and saving */
+
+.menubar-right { margin-left: auto; display: flex; align-items: center; padding-right: 8px; }
+
+.project-name {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 3px 6px;
+  min-width: 180px;
+  text-align: right;
+}
+
+.project-name:hover, .project-name:focus {
+  border-color: var(--border);
+  background: #fff;
+  color: var(--text);
+  outline: none;
+  text-align: left;
+}
+
+.empty-state .primary {
+  font-size: 14px;
+  padding: 9px 20px;
+}
+
+.recents {
+  margin-top: 26px;
+  width: min(560px, 80%);
+  text-align: left;
+}
+
+.recents h2 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.recents ul { list-style: none; margin: 0; padding: 0; }
+.recents li { display: flex; gap: 4px; margin-bottom: 4px; }
+
+.recents .recent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  padding: 7px 11px;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.recents .recent:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.recent-name { font-weight: 600; color: var(--text); }
+.recents .recent:hover .recent-name { color: #fff; }
+.recent-meta { font-size: 11px; color: var(--text-dim); }
+.recents .recent:hover .recent-meta { color: #d8d8f0; }
+
+.recent-delete {
+  flex: none;
+  width: 30px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text-dim);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.recent-delete:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* -------------------------------------------------------------- update ready */
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #e8f0fd;
+  border-top: 1px solid var(--accent);
+  color: #1a2a5a;
+  flex: none;
+}
+
+.update-banner button {
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.update-banner button.ghost { background: transparent; color: var(--accent); }
+.update-banner span { margin-right: auto; }

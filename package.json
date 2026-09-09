@@ -1,0 +1,30 @@
+{
+  "name": "song-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "npm run test:model && npm run test:browser && npm run test:prod",
+    "test:model": "esbuild test/edits.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.tmp/edits.test.mjs --log-level=error && node node_modules/.tmp/edits.test.mjs",
+    "test:browser": "node test/browser.test.mjs",
+    "test:fixtures": "node test/fixtures/generate.mjs",
+    "test:prod": "node test/production.test.mjs"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "esbuild": "^0.24.2",
+    "puppeteer-core": "^23.11.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}
