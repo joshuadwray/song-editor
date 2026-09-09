@@ -86,6 +86,18 @@ page.on('request', (req) => {
   }
 });
 
+/**
+ * The app follows the platform convention — Cmd on macOS, Ctrl elsewhere — so
+ * the tests have to as well. CI runs Linux; hardcoding Meta made every undo
+ * silently do nothing there.
+ */
+const MOD_KEY = process.platform === 'darwin' ? 'Meta' : 'Control';
+async function chord(key) {
+  await page.keyboard.down(MOD_KEY);
+  await page.keyboard.press(key);
+  await page.keyboard.up(MOD_KEY);
+}
+
 const problems = [];
 page.on('pageerror', (e) => problems.push('pageerror: ' + e));
 page.on('console', (m) => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
@@ -392,9 +404,7 @@ check('a ripple cut keeps every track aligned',
   near(ui.tracks[0].clips[1].start, ui.tracks[1].clips[1].start, 0.001),
   JSON.stringify(ui.tracks.map((t) => t.clips.map((c) => +c.start.toFixed(3)))));
 
-await page.keyboard.down('Meta');
-await page.keyboard.press('z');
-await page.keyboard.up('Meta');
+await chord('z');
 await new Promise((r) => setTimeout(r, 300));
 check('undo restores the original length', near(await durationOf(), openDuration, 0.01));
 
@@ -422,9 +432,7 @@ check('the clip snaps its edge onto the neighbouring track boundary',
   `end ${shifted.tracks[1].clips[0].end.toFixed(4)}s (wanted exactly 6)`);
 check('the untouched track did not move', near(shifted.tracks[0].clips[0].start, 0, 1e-6));
 
-await page.keyboard.down('Meta');
-await page.keyboard.press('z');
-await page.keyboard.up('Meta');
+await chord('z');
 await new Promise((r) => setTimeout(r, 250));
 check('a whole drag undoes in one step',
   near((await state()).tracks[1].clips[0].start, 0, 1e-6),
@@ -465,9 +473,7 @@ await page.evaluate(() => {
 await new Promise((r) => setTimeout(r, 250));
 check('the fader moved', (await state()).tracks[0].gain > faderBefore);
 
-await page.keyboard.down('Meta');
-await page.keyboard.press('z');
-await page.keyboard.up('Meta');
+await chord('z');
 await new Promise((r) => setTimeout(r, 250));
 check('a whole fader drag undoes in one step',
   near((await state()).tracks[0].gain, faderBefore, 1e-6),
