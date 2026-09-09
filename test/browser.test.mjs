@@ -9,8 +9,8 @@
  * Run with: npm run test:browser
  */
 
-import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
@@ -20,6 +20,13 @@ const FIXTURES = join(HERE, 'fixtures');
 const PORT = 5177;
 const CHROME =
   process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+
+// Fixtures are generated rather than committed, so make the suite self
+// sufficient — a fresh clone or a CI runner has nothing to serve otherwise.
+if (!existsSync(join(FIXTURES, 'tones.wav'))) {
+  console.log('generating fixtures…');
+  execFileSync('node', [join(FIXTURES, 'generate.mjs')], { stdio: 'ignore' });
+}
 
 let passed = 0;
 const failures = [];
