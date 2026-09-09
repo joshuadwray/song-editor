@@ -5,29 +5,13 @@
  * this project is that it looks like the tool she already knows.
  */
 
+import { CANVAS } from '../../theme.config';
 import { Clip, Track, clipEnd } from '../model/project';
 import { SourceRegistry } from '../audio/decode';
 import type { Peaks } from './peaks';
 
-export const COLORS = {
-  trackBg: '#ededed',
-  trackBgSelected: '#d2d2e8',
-  clipBg: '#ffffff',
-  clipBgSelected: '#dcdcf0',
-  peak: '#3232c8',
-  rms: '#6f6fdc',
-  centerLine: '#9a9aa8',
-  clipBorder: '#8f8fa8',
-  rulerBg: '#e4e4e8',
-  rulerText: '#333340',
-  rulerTick: '#7a7a88',
-  playhead: '#c81e1e',
-  cursor: '#404050',
-  effectTint: 'rgba(224, 148, 32, 0.20)',
-  effectBar: '#c07818',
-  effectText: '#5a3708',
-  snapGuide: '#e08000',
-};
+/** The waveform palette. Defined in theme.config.ts with everything else. */
+export const COLORS = CANVAS;
 
 export interface View {
   /** Project time at the left edge of the canvas. */

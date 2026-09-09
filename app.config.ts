@@ -12,13 +12,18 @@
  * title, the manifest and the in-app text all follow.
  */
 
+import { BACKGROUND_COLOR, THEME_COLOR } // Explicit extension: the production test loads this module in Node, which
+// resolves imports literally rather than the way a bundler does.
+from './theme.config.ts';
+
 export const APP_NAME = 'Alainacity';
 
 export const APP_DESCRIPTION =
   'A simple audio editor for trimming, cutting and mixing songs.';
 
-export const THEME_COLOR = '#3232c8';
-export const BACKGROUND_COLOR = '#d9d9de';
+
+// Re-exported so callers have one import for the app's identity.
+export { BACKGROUND_COLOR, THEME_COLOR };
 
 /** Built here so the name can never drift out of sync with the page. */
 export function buildManifest(): Record<string, unknown> {

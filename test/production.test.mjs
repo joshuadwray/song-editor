@@ -13,6 +13,8 @@ import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
 import { APP_NAME } from '../app.config.ts';
+// Aliased: CHROME is already the browser executable path in this file.
+import { CHROME as PALETTE, THEME_COLOR } from '../theme.config.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -47,8 +49,15 @@ const TYPES = {
 };
 
 // Serve the build the way GitHub Pages would: only under the project subpath.
+let probeCount = 0;
 const server = createServer((req, res) => {
   const url = req.url.split('?')[0];
+  // Changes on every request: identical responses mean it was served from
+  // cache, differing ones mean it went to the network.
+  if (url === `${BASE}__probe`) {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    return res.end(String((probeCount += 1)));
+  }
   if (!url.startsWith(BASE)) {
     res.writeHead(404);
     return res.end('not found');
@@ -111,6 +120,47 @@ check('the manifest carries the configured app name', manifest.json.name === APP
   `${manifest.json.name} vs ${APP_NAME}`);
 check('the page title matches the app name',
   (await page.title()) === APP_NAME, await page.title());
+
+console.log('\ntheme');
+// The palette must reach the page from theme.config.ts alone. A literal left
+// behind in the stylesheet or the HTML is a half-applied retheme.
+check('the manifest theme colour comes from the palette',
+  manifest.json.theme_color === THEME_COLOR,
+  `${manifest.json.theme_color} vs ${THEME_COLOR}`);
+
+const themed = await page.evaluate(async () => {
+  const root = getComputedStyle(document.documentElement);
+  const toolbar = document.querySelector('.toolbar button.play');
+  return {
+    accent: root.getPropertyValue('--accent').trim(),
+    chrome: root.getPropertyValue('--chrome').trim(),
+    favicon: document.querySelector('link[rel=icon]')?.getAttribute('href') ?? '',
+    faviconOk: await (async () => {
+      const href = document.querySelector('link[rel=icon]')?.getAttribute('href');
+      if (!href) return false;
+      const res = await fetch(new URL(href, location.href).href);
+      return res.ok && (await res.text()).includes('<svg');
+    })(),
+    metaTheme: document.querySelector('meta[name=theme-color]')?.getAttribute('content'),
+    playColour: toolbar ? getComputedStyle(toolbar).color : null,
+  };
+});
+check('CSS custom properties are injected from the palette',
+  themed.accent === PALETTE.accent && themed.chrome === PALETTE.chrome,
+  JSON.stringify(themed));
+check('the theme-color meta tag matches', themed.metaTheme === THEME_COLOR, themed.metaTheme);
+check('the browser tab icon is the app artwork and loads',
+  themed.favicon.endsWith('icons/icon.svg') && themed.faviconOk,
+  `${themed.favicon} (loaded: ${themed.faviconOk})`);
+
+const styleSheetText = await page.evaluate(async () => {
+  const link = [...document.querySelectorAll('link[rel=stylesheet]')].map((l) => l.href)[0];
+  return link ? (await fetch(link)).text() : '';
+});
+// Whites and rgba() are fine; a six-digit hex means a colour escaped the palette.
+const strays = [...styleSheetText.matchAll(/#[0-9a-f]{6}\b/gi)].map((m) => m[0]);
+check('no colour is hardcoded in the stylesheet', strays.length === 0,
+  [...new Set(strays)].join(', '));
 check('every icon actually loads', manifest.icons.every((i) => i.ok),
   JSON.stringify(manifest.icons));
 check('a maskable icon is provided for the ChromeOS shelf',
@@ -124,6 +174,18 @@ const reg = await page.evaluate(async () => {
 check('a service worker is active', reg.active);
 check('its scope is confined to this app, not the whole origin',
   new URL(reg.scope).pathname === BASE, reg.scope);
+
+// A stable-named file — the manifest, an icon — must go to the network first.
+// Cache-first there would pin an installed app to whatever it saw on day one,
+// so a new icon or app name could never reach it.
+const freshness = await page.evaluate(async () => {
+  const first = await (await fetch('__probe')).text();
+  const second = await (await fetch('__probe')).text();
+  return { first, second };
+});
+check('stable-named files are served fresh, not pinned to the first version',
+  freshness.first !== freshness.second,
+  `got "${freshness.first}" twice — served from cache`);
 
 // Reload once so the worker caches the assets it now controls.
 await page.reload({ waitUntil: 'networkidle0' });
@@ -186,6 +248,16 @@ await new Promise((r) => setTimeout(r, 1400));
 check('the app loads with no network at all', (await page.$('.menubar')) !== null);
 check('the interface is fully rendered offline',
   (await page.$$('.toolbar button')).length > 5);
+const offlineProbe = await page.evaluate(async () => {
+  try {
+    return await (await fetch('__probe')).text();
+  } catch {
+    return null;
+  }
+});
+check('and still fall back to cache when offline', offlineProbe !== null,
+  'no cached copy available');
+
 check('project storage works offline',
   await page.evaluate(() => window.isSecureContext && typeof navigator.storage?.getDirectory === 'function'));
 

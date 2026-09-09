@@ -1,14 +1,11 @@
 /* Audacity's light chrome, deliberately: the point is that it looks familiar. */
 
+/*
+ * Colours are injected as custom properties from theme.config.ts — see the
+ * app-identity plugin in vite.config.ts. They are deliberately not written
+ * here, so there is exactly one place to change the theme.
+ */
 :root {
-  --chrome: #d9d9de;
-  --chrome-dark: #c2c2c9;
-  --chrome-light: #ecedf0;
-  --text: #1e1e28;
-  --text-dim: #62626e;
-  --accent: #3232c8;
-  --border: #a8a8b4;
-  --danger: #b02020;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   color: var(--text);
@@ -53,7 +50,7 @@ body {
 
 .menu-title:hover, .menu-title.open {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .menu-dropdown {
@@ -82,10 +79,10 @@ body {
   cursor: default;
 }
 
-.menu-item:hover:not(:disabled) { background: var(--accent); color: #fff; }
-.menu-item:disabled { color: #a0a0aa; }
+.menu-item:hover:not(:disabled) { background: var(--accent); color: var(--accent-text); }
+.menu-item:disabled { color: var(--disabled); }
 .menu-shortcut { color: var(--text-dim); }
-.menu-item:hover:not(:disabled) .menu-shortcut { color: #d8d8f0; }
+.menu-item:hover:not(:disabled) .menu-shortcut { color: var(--accent-text-dim); }
 .menu-separator { height: 1px; background: var(--border); margin: 4px 0; }
 
 /* ------------------------------------------------------------------ toolbar */
@@ -114,15 +111,15 @@ body {
   cursor: pointer;
 }
 
-.toolbar button:hover:not(:disabled) { background: #fff; }
+.toolbar button:hover:not(:disabled) { background: var(--surface); }
 .toolbar button:disabled { opacity: 0.4; cursor: default; }
-.toolbar button.play { color: #1a7a1a; }
+.toolbar button.play { color: var(--play); }
 
 .readout { gap: 8px; font-variant-numeric: tabular-nums; }
 .readout-label { color: var(--text-dim); }
 .readout-value {
-  background: #1e1e28;
-  color: #7cf07c;
+  background: var(--readout-bg);
+  color: var(--readout-text);
   padding: 3px 8px;
   border-radius: 3px;
   min-width: 70px;
@@ -188,7 +185,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.track-panel.focused { background: #cfcfe4; }
+.track-panel.focused { background: var(--panel-focus); }
 
 .track-panel-top { display: flex; align-items: center; gap: 4px; }
 
@@ -206,7 +203,7 @@ body {
 
 .track-name:hover, .track-name:focus {
   border-color: var(--border);
-  background: #fff;
+  background: var(--surface);
   outline: none;
 }
 
@@ -223,7 +220,7 @@ body {
   cursor: pointer;
 }
 
-.track-close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+.track-close:hover { background: var(--danger); color: var(--accent-text); border-color: var(--danger); }
 
 .track-buttons { display: flex; gap: 4px; }
 
@@ -238,7 +235,7 @@ body {
   cursor: pointer;
 }
 
-.track-buttons button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.track-buttons button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
 .slider-row {
   display: flex;
@@ -260,20 +257,20 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: #f4f4f7;
+  background: var(--empty-bg);
   color: var(--text-dim);
 }
 
 .empty-state button {
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   font: inherit;
   padding: 7px 16px;
   cursor: pointer;
 }
 
-.empty-state button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.empty-state button:hover { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .empty-state p { margin: 0; }
 .empty-state .hint { font-size: 11px; }
 
@@ -298,9 +295,9 @@ body {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: #fde8e8;
+  background: var(--danger-bg);
   border-top: 1px solid var(--danger);
-  color: #6a1414;
+  color: var(--danger-text);
   flex: none;
 }
 
@@ -322,7 +319,7 @@ body {
   align-items: center;
   justify-content: center;
   background: rgb(30 30 40 / 0.35);
-  color: #fff;
+  color: var(--accent-text);
   font-size: 15px;
   z-index: 100;
 }
@@ -332,11 +329,11 @@ body {
 .hscroll::-webkit-scrollbar { height: 13px; }
 .hscroll::-webkit-scrollbar-track { background: var(--chrome-dark); }
 .hscroll::-webkit-scrollbar-thumb {
-  background: #8f8f9e;
+  background: var(--scroll-thumb);
   border: 2px solid var(--chrome-dark);
   border-radius: 7px;
 }
-.hscroll::-webkit-scrollbar-thumb:hover { background: #70707f; }
+.hscroll::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
 .statusbar .mem { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .statusbar .mem.warn { color: var(--danger); font-weight: 600; }
@@ -350,7 +347,7 @@ body {
 
 .toolbar-group.tools button.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -383,7 +380,7 @@ body {
 
 .project-name:hover, .project-name:focus {
   border-color: var(--border);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
   text-align: left;
@@ -420,31 +417,31 @@ body {
   align-items: flex-start;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   padding: 7px 11px;
   font: inherit;
   cursor: pointer;
   text-align: left;
 }
 
-.recents .recent:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.recents .recent:hover { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .recent-name { font-weight: 600; color: var(--text); }
-.recents .recent:hover .recent-name { color: #fff; }
+.recents .recent:hover .recent-name { color: var(--accent-text); }
 .recent-meta { font-size: 11px; color: var(--text-dim); }
-.recents .recent:hover .recent-meta { color: #d8d8f0; }
+.recents .recent:hover .recent-meta { color: var(--accent-text-dim); }
 
 .recent-delete {
   flex: none;
   width: 30px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text-dim);
   font-size: 15px;
   cursor: pointer;
 }
 
-.recent-delete:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+.recent-delete:hover { background: var(--danger); color: var(--accent-text); border-color: var(--danger); }
 
 /* -------------------------------------------------------------- update ready */
 
@@ -453,9 +450,9 @@ body {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: #e8f0fd;
+  background: var(--accent-soft);
   border-top: 1px solid var(--accent);
-  color: #1a2a5a;
+  color: var(--accent-deep);
   flex: none;
 }
 
@@ -463,7 +460,7 @@ body {
   border: 1px solid var(--accent);
   border-radius: 3px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   font: inherit;
   padding: 4px 12px;
   cursor: pointer;

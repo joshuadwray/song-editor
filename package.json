@@ -11,7 +11,8 @@
     "test:model": "esbuild test/edits.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.tmp/edits.test.mjs --log-level=error && node node_modules/.tmp/edits.test.mjs",
     "test:browser": "node test/browser.test.mjs",
     "test:fixtures": "node test/fixtures/generate.mjs",
-    "test:prod": "node test/production.test.mjs"
+    "test:prod": "node test/production.test.mjs",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
