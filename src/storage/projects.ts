@@ -33,6 +33,11 @@ interface StoredProject extends ProjectSummary {
  * Browser storage is scoped to the *origin*, not the path — so on GitHub Pages
  * every app under `<user>.github.io` shares one OPFS filesystem. Namespacing
  * keeps a neighbouring app from ever colliding with her projects.
+ *
+ * NEVER CHANGE THIS STRING. It is the key to every saved project, and it is
+ * deliberately unrelated to the repository name or the app's display name so
+ * that renaming either cannot orphan her work. Storage survives a repo rename
+ * precisely because the origin and this key both stay put.
  */
 const APP_DIR = 'song-editor';
 
