@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
+import { APP_NAME } from '../app.config.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -105,6 +106,11 @@ check('the manifest is served from the app subpath',
   manifest.url.endsWith('/song-editor/manifest.webmanifest'), manifest.url);
 check('start_url resolves inside the subpath', manifest.startUrl === BASE, manifest.startUrl);
 check('the app is installable as a standalone window', manifest.json.display === 'standalone');
+// The display name lives in app.config.ts alone; this catches a half-applied rename.
+check('the manifest carries the configured app name', manifest.json.name === APP_NAME,
+  `${manifest.json.name} vs ${APP_NAME}`);
+check('the page title matches the app name',
+  (await page.title()) === APP_NAME, await page.title());
 check('every icon actually loads', manifest.icons.every((i) => i.ok),
   JSON.stringify(manifest.icons));
 check('a maskable icon is provided for the ChromeOS shelf',

@@ -52,6 +52,7 @@ import {
 } from '../storage/projects';
 import { computePeaks, type Peaks } from '../waveform/peaks';
 import { applyUpdate, registerServiceWorker } from '../pwa';
+import { APP_NAME } from '../../app.config';
 import { Selection, View, formatTime } from '../waveform/draw';
 import { ContextMenu, MenuBar, type Menu, type MenuItem } from './MenuBar';
 import { Toolbar } from './Toolbar';
@@ -1139,7 +1140,7 @@ export function App() {
 
       {updateReady && (
         <div className="update-banner">
-          <span>A new version of Song Editor is ready.</span>
+          <span>A new version of {APP_NAME} is ready.</span>
           <button type="button" onClick={applyUpdate}>
             Reload to update
           </button>

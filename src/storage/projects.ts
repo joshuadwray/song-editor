@@ -8,6 +8,7 @@
  * cleanup wrong costs her work.
  */
 
+import { APP_NAME } from '../../app.config';
 import { Project, projectDuration } from '../model/project';
 import { hasOpfs, listDir, readFile, removeEntry, writeFile } from './opfs';
 
@@ -73,7 +74,7 @@ export async function loadProject(
     const stored = JSON.parse(await file.text()) as StoredProject;
     if (stored.version > FORMAT_VERSION) {
       throw new Error(
-        'This project was saved by a newer version of Song Editor and cannot be opened.',
+        `This project was saved by a newer version of ${APP_NAME} and cannot be opened.`,
       );
     }
     return { name: stored.name, project: stored.project };
