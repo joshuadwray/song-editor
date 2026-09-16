@@ -240,6 +240,126 @@ await page.waitForFunction(
 );
 check('a project saves in the production build', true);
 
+// ----------------------------------------------------------------- exporting
+//
+// Exercised through the real UI, because the bug this guards against lives in
+// the *order* of the export steps rather than in any one of them.
+//
+// showSaveFilePicker needs transient user activation, which expires a few
+// seconds after the click. Asking where to save only once the audio had been
+// rendered and encoded therefore failed outright for MP3, and would have failed
+// for WAV on a long enough recording. The unit tests never caught it because
+// they call encodeMp3 directly and never reach the picker.
+console.log('\nexporting');
+
+/**
+ * Replace the file picker with a stub that records the conditions it was called
+ * under, and captures whatever gets written to it.
+ */
+async function stubPicker(outcome = 'accept') {
+  await page.evaluate((mode) => {
+    window.__picked = [];
+    window.showSaveFilePicker = async (options) => {
+      window.__picked.push({
+        suggestedName: options?.suggestedName,
+        // The exact condition that used to fail.
+        activationAlive: navigator.userActivation.isActive,
+        // Proof the picker came first: any rendering or encoding would have put
+        // text on the busy overlay by now. Asserting order rather than elapsed
+        // time keeps this independent of how long the fixture takes to encode —
+        // a timing-based test would pass on a short file even with the bug.
+        busyAtPickTime: document.querySelector('.busy-overlay')?.textContent ?? null,
+      });
+      if (mode === 'cancel') {
+        throw new DOMException('The user aborted a request.', 'AbortError');
+      }
+      return {
+        createWritable: async () => ({
+          write: async (blob) => {
+            window.__written = {
+              size: blob.size,
+              type: blob.type,
+              head: [...new Uint8Array(await blob.slice(0, 3).arrayBuffer())],
+            };
+          },
+          close: async () => {},
+        }),
+      };
+    };
+  }, outcome);
+}
+
+/** Drive the File menu with real clicks, so the page gets genuine activation. */
+async function exportVia(label) {
+  await page.evaluate(() => { delete window.__written; });
+  await page.click('.menu-title');
+  await page.waitForSelector('.menu-dropdown', { timeout: 4000 });
+  const clicked = await page.evaluate((text) => {
+    const item = [...document.querySelectorAll('.menu-item')].find((b) =>
+      b.textContent.startsWith(text),
+    );
+    if (!item) return false;
+    item.click();
+    return true;
+  }, label);
+  if (!clicked) throw new Error(`no menu item starting with "${label}"`);
+  // Wait for the export to settle rather than guessing at a duration.
+  await page
+    .waitForFunction(() => !document.querySelector('.busy-overlay'), { timeout: 45_000 })
+    .catch(() => {});
+  await new Promise((r) => setTimeout(r, 300));
+  return page.evaluate(() => ({
+    picked: window.__picked ?? [],
+    written: window.__written ?? null,
+    status: document.querySelector('.statusbar')?.innerText.split('\n')[0] ?? '',
+    error: document.querySelector('.error-banner')?.innerText ?? null,
+  }));
+}
+
+await stubPicker('accept');
+const mp3 = await exportVia('Export as MP3');
+
+check('exporting as MP3 opens the save dialog', mp3.picked.length === 1,
+  JSON.stringify(mp3.picked));
+check('the MP3 save dialog opens while the click is still active',
+  mp3.picked[0]?.activationAlive === true,
+  `activation ${mp3.picked[0]?.activationAlive} — this is the reported bug`);
+check('the MP3 save dialog opens before any rendering or encoding',
+  mp3.picked[0]?.busyAtPickTime === null,
+  `busy overlay read "${mp3.picked[0]?.busyAtPickTime}" at pick time`);
+check('the MP3 filename is offered to the dialog',
+  mp3.picked[0]?.suggestedName?.endsWith('.mp3'), mp3.picked[0]?.suggestedName);
+check('a valid MPEG file is written',
+  mp3.written !== null &&
+    mp3.written.size > 1000 &&
+    ((mp3.written.head[0] === 0xff && (mp3.written.head[1] & 0xe0) === 0xe0) ||
+      String.fromCharCode(...mp3.written.head) === 'ID3'),
+  JSON.stringify(mp3.written));
+check('MP3 export reports success, not an error', mp3.error === null && /Exported/.test(mp3.status),
+  `${mp3.status} | ${mp3.error ?? 'no error'}`);
+
+// WAV was never reported as broken, only because it encodes fast enough to beat
+// the activation expiry. It has to hold to the same order.
+await stubPicker('accept');
+const wav = await exportVia('Export as WAV');
+
+check('the WAV save dialog also opens while the click is still active',
+  wav.picked[0]?.activationAlive === true, `activation ${wav.picked[0]?.activationAlive}`);
+check('the WAV save dialog also opens before any rendering',
+  wav.picked[0]?.busyAtPickTime === null,
+  `busy overlay read "${wav.picked[0]?.busyAtPickTime}" at pick time`);
+check('a valid WAV file is written',
+  wav.written !== null && String.fromCharCode(...wav.written.head) === 'RIF',
+  JSON.stringify(wav.written));
+
+// Cancelling is an ordinary outcome, not an error — and must not waste an encode.
+await stubPicker('cancel');
+const cancelled = await exportVia('Export as MP3');
+
+check('cancelling the dialog reports cancellation rather than an error',
+  cancelled.error === null && /cancelled/i.test(cancelled.status), cancelled.status);
+check('cancelling writes no file', cancelled.written === null);
+
 console.log('\noffline');
 await page.setOfflineMode(true);
 await page.reload({ waitUntil: 'domcontentloaded' });

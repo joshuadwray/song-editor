@@ -49,33 +49,54 @@ function openViaInput(): Promise<File[]> {
   });
 }
 
-/** Returns false when the user cancels the save dialog. */
-export async function saveBlob(
-  blob: Blob,
+/**
+ * Ask where to save, before the file exists.
+ *
+ * Deliberately separate from writing. `showSaveFilePicker` requires transient
+ * user activation, which expires a few seconds after the click that granted it,
+ * so it has to be called before any slow work — rendering and encoding a song
+ * take far longer than the activation lasts. Callers must invoke this with no
+ * `await` between the click and this call.
+ *
+ * Returns null when the user cancels, which is an ordinary outcome rather than
+ * an error.
+ */
+export async function pickSaveFile(
   suggestedName: string,
   accept: Record<string, string[]>,
-): Promise<boolean> {
-  if (hasFileSystemAccess()) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName,
-        types: [{ description: 'Audio file', accept }],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return true;
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return false;
-      throw err;
-    }
+): Promise<FileSystemFileHandle | null> {
+  try {
+    return await window.showSaveFilePicker({
+      suggestedName,
+      types: [{ description: 'Audio file', accept }],
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return null;
+    throw err;
   }
+}
 
+/** Write to a handle obtained earlier from pickSaveFile. */
+export async function writeToFile(handle: FileSystemFileHandle, blob: Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  try {
+    await writable.write(blob);
+  } finally {
+    // Close even on failure, or the file is left locked for the session.
+    await writable.close();
+  }
+}
+
+/**
+ * Fallback for browsers without the File System Access API: hand the file to
+ * the download manager. No picker is involved, so this is safe to call after
+ * the encode has finished.
+ */
+export function downloadBlob(blob: Blob, suggestedName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = suggestedName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  return true;
 }

@@ -38,7 +38,13 @@ import { AudioEngine } from '../audio/engine';
 import { renderProject } from '../audio/export/render';
 import { encodeWav } from '../audio/export/wav';
 import { MP3_BITRATE, encodeMp3 } from '../audio/export/mp3';
-import { hasFileSystemAccess, openAudioFiles, saveBlob } from '../storage/filesystem';
+import {
+  downloadBlob,
+  hasFileSystemAccess,
+  openAudioFiles,
+  pickSaveFile,
+  writeToFile,
+} from '../storage/filesystem';
 import { hasOpfs, requestPersistence } from '../storage/opfs';
 import {
   ProjectSummary,
@@ -661,8 +667,42 @@ export function App() {
         : project;
       if (projectDuration(scope) <= 0) return;
 
-      setBusy('Rendering…');
+      const stem = track
+        ? track.name
+        : hasRange(selection)
+          ? `${projectName} (selection)`
+          : projectName;
+      const name = `${stem}.${format}`;
+      const accept: Record<string, string[]> =
+        format === 'mp3' ? { 'audio/mpeg': ['.mp3'] } : { 'audio/wav': ['.wav'] };
+
+      // Ask where to save FIRST, before anything slow.
+      //
+      // showSaveFilePicker needs transient user activation, which expires a few
+      // seconds after the click. Rendering and encoding a song take longer than
+      // that, so asking afterwards fails outright — which is what it used to do
+      // for MP3, and would eventually have done for WAV on a long recording.
+      // Everything above this point is synchronous, so the activation from her
+      // click is still alive here.
+      //
+      // It is also the better order: cancelling now costs nothing, instead of
+      // making her sit through an encode to be asked where to put it.
       setError(null);
+      let handle: FileSystemFileHandle | null = null;
+      if (hasFileSystemAccess()) {
+        try {
+          handle = await pickSaveFile(name, accept);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+          return;
+        }
+        if (!handle) {
+          setStatus('Export cancelled.');
+          return;
+        }
+      }
+
+      setBusy('Rendering…');
       try {
         const buffer = await renderProject(scope, registry, { range });
         const blob =
@@ -672,16 +712,11 @@ export function App() {
               )
             : encodeWav(buffer);
 
-        const stem = track ? track.name : hasRange(selection) ? `${projectName} (selection)` : projectName;
-        const name = `${stem}.${format}`;
-        const accept: Record<string, string[]> =
-          format === 'mp3' ? { 'audio/mpeg': ['.mp3'] } : { 'audio/wav': ['.wav'] };
-        const saved = await saveBlob(blob, name, accept);
-        setStatus(
-          saved
-            ? `Exported ${name} (${(blob.size / 1024 / 1024).toFixed(1)} MB)`
-            : 'Export cancelled.',
-        );
+        setBusy('Saving…');
+        if (handle) await writeToFile(handle, blob);
+        else downloadBlob(blob, name);
+
+        setStatus(`Exported ${name} (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
