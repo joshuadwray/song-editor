@@ -107,6 +107,7 @@ export interface TimelineProps {
   onTrackChange: (trackId: string, patch: Partial<Track>) => void;
   onTrackCommit: () => void;
   onRemoveTrack: (trackId: string) => void;
+  onMoveTrack: (trackId: string, delta: number) => void;
   onImportClick: () => void;
   onClipDragStart: () => void;
   onClipDragMove: (trackId: string, clipId: string, newStart: number) => void;
@@ -121,7 +122,7 @@ export function Timeline(props: TimelineProps) {
   const {
     project, peaks, registry, tool, view, onViewChange, selection, onSelectionChange,
     playhead, isPlaying, onSeek, focusedTrackId, onFocusTrack, onTrackChange, onTrackCommit,
-    onRemoveTrack, onImportClick, onClipDragStart, onClipDragMove, onClipDragEnd, onContextMenu,
+    onRemoveTrack, onMoveTrack, onImportClick, onClipDragStart, onClipDragMove, onClipDragEnd, onContextMenu,
     recents, onOpenProject, onDeleteProject,
   } = props;
 
@@ -133,6 +134,8 @@ export function Timeline(props: TimelineProps) {
   const hscrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   const [snapGuide, setSnapGuide] = useState<number | null>(null);
+  /** A track being dragged by its grip, and the gap it would drop into. */
+  const [trackDrag, setTrackDrag] = useState<{ trackId: string; slot: number } | null>(null);
 
   const duration = projectDuration(project);
   const lanesHeight = Math.max(TRACK_HEIGHT, project.tracks.length * TRACK_HEIGHT);
@@ -346,6 +349,46 @@ export function Timeline(props: TimelineProps) {
     else beginSelection(event);
   };
 
+  /**
+   * Reorder by dragging a track's grip. The drop target is a gap between
+   * tracks (0 = above the first, n = below the last), not a track, so the
+   * indicator always sits exactly where the track will land.
+   */
+  const beginTrackDrag = (event: React.PointerEvent, trackId: string): void => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const index = project.tracks.findIndex((t) => t.id === trackId);
+    if (index === -1) return;
+    onFocusTrack(trackId);
+
+    const slotAt = (clientY: number): number => {
+      const el = lanesRef.current;
+      if (!el) return index;
+      const y = clientY - el.getBoundingClientRect().top;
+      return Math.max(0, Math.min(project.tracks.length, Math.round(y / TRACK_HEIGHT)));
+    };
+    let slot = index;
+    setTrackDrag({ trackId, slot });
+
+    const onMove = (e: PointerEvent) => {
+      slot = slotAt(e.clientY);
+      setTrackDrag({ trackId, slot });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      setTrackDrag(null);
+      // Removing the track first shifts every gap below it up by one.
+      const target = slot > index ? slot - 1 : slot;
+      if (target !== index) onMoveTrack(trackId, target - index);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  };
+
   const scrollWidth = Math.max(duration, 1) * view.pxPerSec + width;
 
   return (
@@ -357,7 +400,10 @@ export function Timeline(props: TimelineProps) {
         </div>
       </div>
 
-      <div className="timeline-body" ref={bodyRef}>
+      <div className={`timeline-body${trackDrag ? ' reordering' : ''}`} ref={bodyRef}>
+        {trackDrag && (
+          <div className="track-drop-line" style={{ top: trackDrag.slot * TRACK_HEIGHT - 1 }} />
+        )}
         <div className="panel-column" style={{ width: PANEL_WIDTH }}>
           {project.tracks.map((track) => (
             <TrackPanel
@@ -369,6 +415,8 @@ export function Timeline(props: TimelineProps) {
               onChange={(patch) => onTrackChange(track.id, patch)}
               onCommit={onTrackCommit}
               onRemove={() => onRemoveTrack(track.id)}
+              onGripPointerDown={(e) => beginTrackDrag(e, track.id)}
+              dragging={trackDrag?.trackId === track.id}
             />
           ))}
         </div>

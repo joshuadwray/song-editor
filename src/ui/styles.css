@@ -144,8 +144,21 @@ body {
 .timeline-body {
   flex: 1;
   display: flex;
+  position: relative;
   min-height: 0;
   overflow-y: auto;
+}
+
+.timeline-body.reordering, .timeline-body.reordering * { cursor: grabbing !important; }
+
+.track-drop-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 20;
+  background: var(--accent);
+  pointer-events: none;
 }
 
 .panel-column { flex: none; border-right: 1px solid var(--border); }
@@ -186,6 +199,19 @@ body {
 }
 
 .track-panel.focused { background: var(--panel-focus); }
+.track-panel.dragging { opacity: 0.55; }
+
+.track-grip {
+  flex: none;
+  cursor: grab;
+  color: var(--text-dim);
+  opacity: 0.7;
+  padding: 0 1px;
+  user-select: none;
+  touch-action: none;
+}
+
+.track-grip:hover { opacity: 1; }
 
 .track-panel-top { display: flex; align-items: center; gap: 4px; }
 

@@ -10,11 +10,14 @@ interface TrackPanelProps {
   /** Close the run of live updates as one undo step. */
   onCommit: () => void;
   onRemove: () => void;
+  /** Pressing the grip starts dragging the track to a new place in the stack. */
+  onGripPointerDown: (event: React.PointerEvent) => void;
+  dragging: boolean;
 }
 
 /** The control strip to the left of each track, mirroring Audacity's layout. */
 export function TrackPanel({
-  track, height, focused, onFocus, onChange, onCommit, onRemove,
+  track, height, focused, onFocus, onChange, onCommit, onRemove, onGripPointerDown, dragging,
 }: TrackPanelProps) {
   // Discrete controls are their own undo step; continuous ones coalesce into
   // one, so dragging a slider does not leave fifty entries in the history.
@@ -25,11 +28,19 @@ export function TrackPanel({
 
   return (
     <div
-      className={`track-panel${focused ? ' focused' : ''}`}
+      className={`track-panel${focused ? ' focused' : ''}${dragging ? ' dragging' : ''}`}
       style={{ height }}
       onMouseDown={onFocus}
     >
       <div className="track-panel-top">
+        <span
+          className="track-grip"
+          onPointerDown={onGripPointerDown}
+          title="Drag to reorder"
+          aria-label="Drag to reorder track"
+        >
+          ⠿
+        </span>
         <input
           className="track-name"
           value={track.name}

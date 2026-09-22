@@ -107,8 +107,9 @@ export function App() {
     hasOpfs() ? 'unsaved' : 'unavailable',
   );
   // Sync-lock keeps a multi-track project aligned: a ripple cut on one track
-  // would otherwise slide it out of step with the others, silently.
-  const [syncLock, setSyncLock] = useState(true);
+  // would otherwise slide it out of step with the others. Off by default,
+  // because an edit reaching tracks the selection is not drawn on surprises.
+  const [syncLock, setSyncLock] = useState(false);
   const [status, setStatus] = useState('Ready.');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -164,9 +165,10 @@ export function App() {
   /**
    * Tracks a *time-changing* edit applies to.
    *
-   * With sync-lock on, cuts and pastes hit every track so a multi-track project
-   * cannot drift out of alignment. Effects deliberately do not use this — you
-   * never want vocal reduction applied to every track at once.
+   * With sync-lock on, ripple cuts hit every track so a multi-track project
+   * cannot drift out of alignment. Edits that move nothing in time (trim,
+   * silence, effects) deliberately do not use this: they cannot misalign
+   * anything, so they stay on the tracks the selection covers.
    */
   const timeEditTracks = useCallback((): string[] | null => {
     if (syncLock && project.tracks.length > 1) return null;
@@ -479,12 +481,18 @@ export function App() {
     (ripple: boolean) => {
       if (!hasRange(selection)) return;
       commitProject(
-        deleteRange(project, timeEditTracks(), selection.start, selection.end, ripple),
+        deleteRange(
+          project,
+          ripple ? timeEditTracks() : selectedTracks(),
+          selection.start,
+          selection.end,
+          ripple,
+        ),
       );
       setSelection({ start: selection.start, end: selection.start, trackIds: selection.trackIds });
       setStatus(ripple ? 'Cut section removed.' : 'Section silenced.');
     },
-    [project, selection, timeEditTracks, commitProject],
+    [project, selection, timeEditTracks, selectedTracks, commitProject],
   );
 
   const doCopy = useCallback(() => {
@@ -510,9 +518,9 @@ export function App() {
 
   const doTrim = useCallback(() => {
     if (!hasRange(selection)) return;
-    commitProject(trimToRange(project, timeEditTracks(), selection.start, selection.end));
+    commitProject(trimToRange(project, selectedTracks(), selection.start, selection.end));
     setStatus('Trimmed to selection.');
-  }, [project, selection, timeEditTracks, commitProject]);
+  }, [project, selection, selectedTracks, commitProject]);
 
   /** Where a split will land: the cursor, which stopping playback moves. */
   const splitPoint = selection ? selection.start : playhead;
@@ -1069,6 +1077,10 @@ export function App() {
         onTrackChange={handleTrackChange}
         onTrackCommit={endAmend}
         onRemoveTrack={handleRemoveTrack}
+        onMoveTrack={(trackId, delta) => {
+          commitProject(moveTrackTo(project, trackId, delta));
+          setStatus('Moved track.');
+        }}
         onImportClick={() => void handleOpen()}
         recents={recents}
         onOpenProject={(id) => void openProject(id)}
@@ -1111,7 +1123,14 @@ export function App() {
                 : 'unsaved changes'}
         </span>
         {project.tracks.length > 1 && (
-          <span className="mem" title="Cuts and pastes apply to every track, keeping them aligned.">
+          <span
+            className="mem"
+            title={
+              syncLock
+                ? 'Cuts apply to every track, keeping them aligned.'
+                : 'Edits apply only to the selected tracks.'
+            }
+          >
             {syncLock ? 'sync-locked' : 'tracks independent'}
           </span>
         )}

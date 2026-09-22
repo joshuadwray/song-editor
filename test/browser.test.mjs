@@ -375,7 +375,7 @@ console.log('\nediting through the interface');
 await loadFixtures();
 let ui = await state();
 check('both files open as separate tracks', ui.tracks.length === 2);
-check('sync-lock is on by default', ui.syncLock === true);
+check('sync-lock is off by default', ui.syncLock === false);
 check('the selection tool is active on open', ui.tool === 'select');
 
 const durationOf = async () =>
@@ -397,16 +397,80 @@ check('deleting shortens the project by exactly the selection',
   near(cutDuration, openDuration - selLen, 0.02),
   `${openDuration} - ${selLen} => ${cutDuration}`);
 
-// The footgun sync-lock exists to prevent: a ripple cut made in one track
-// sliding it out of step with the others.
+// The selection is drawn on one track, so the cut must stay on that track.
 ui = await state();
-check('a ripple cut keeps every track aligned',
-  near(ui.tracks[0].clips[1].start, ui.tracks[1].clips[1].start, 0.001),
+check('a cut on one track leaves the other track untouched',
+  ui.tracks[1].clips.length === 1 && near(ui.tracks[1].clips[0].end, 4, 0.001),
   JSON.stringify(ui.tracks.map((t) => t.clips.map((c) => +c.start.toFixed(3)))));
 
 await chord('z');
 await new Promise((r) => setTimeout(r, 300));
 check('undo restores the original length', near(await durationOf(), openDuration, 0.01));
+
+await dragOnLane(laneWidth * 0.1, laneWidth * 0.2, 1);
+await chord('t');
+await new Promise((r) => setTimeout(r, 300));
+ui = await state();
+check('trimming one track leaves the other track untouched',
+  ui.tracks[0].clips.length === 1 && near(ui.tracks[0].clips[0].end, 6, 0.001)
+    && ui.tracks[1].clips[0].start > 0.1,
+  JSON.stringify(ui.tracks.map((t) => t.clips.map((c) => [+c.start.toFixed(3), +c.end.toFixed(3)]))));
+await chord('z');
+await new Promise((r) => setTimeout(r, 300));
+
+// Opting in to sync-lock: a ripple cut made in one track must not slide it
+// out of step with the others.
+await page.evaluate(() => {
+  [...document.querySelectorAll('.menu-title')].find((b) => b.textContent === 'Tracks').click();
+});
+await new Promise((r) => setTimeout(r, 150));
+await page.evaluate(() => {
+  [...document.querySelectorAll('.menu-item')].find((b) => b.textContent.includes('Sync-lock')).click();
+});
+await new Promise((r) => setTimeout(r, 150));
+check('sync-lock can be switched on', (await state()).syncLock === true);
+
+await dragOnLane(laneWidth * 0.3, laneWidth * 0.55, 0);
+await page.keyboard.press('Delete');
+await new Promise((r) => setTimeout(r, 300));
+ui = await state();
+check('with sync-lock on, a ripple cut keeps every track aligned',
+  near(ui.tracks[0].clips[1].start, ui.tracks[1].clips[1].start, 0.001),
+  JSON.stringify(ui.tracks.map((t) => t.clips.map((c) => +c.start.toFixed(3)))));
+
+// ---------------------------------------------------------- track reordering
+
+console.log('\ntrack reordering');
+
+await loadFixtures();
+const namesBefore = (await state()).tracks.map((t) => t.name);
+async function dragGrip(fromIndex, toY) {
+  const grips = await page.$$('.track-grip');
+  const box = await grips[fromIndex].boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, toY, { steps: 8 });
+  await page.mouse.up();
+  await new Promise((r) => setTimeout(r, 250));
+}
+const lanesBox = await (await page.$('.lanes-wrap')).boundingBox();
+await dragGrip(0, lanesBox.y + 2 * 118 - 5);
+check('dragging a track below the last one moves it to the bottom',
+  JSON.stringify((await state()).tracks.map((t) => t.name)) === JSON.stringify([...namesBefore].reverse()),
+  (await state()).tracks.map((t) => t.name).join(', '));
+
+await dragGrip(1, lanesBox.y + 5);
+check('dragging it back to the top restores the order',
+  JSON.stringify((await state()).tracks.map((t) => t.name)) === JSON.stringify(namesBefore));
+
+await dragGrip(0, lanesBox.y + 40);
+check('dropping a track where it started changes nothing',
+  JSON.stringify((await state()).tracks.map((t) => t.name)) === JSON.stringify(namesBefore));
+
+await chord('z');
+await new Promise((r) => setTimeout(r, 250));
+check('a reorder undoes in one step',
+  JSON.stringify((await state()).tracks.map((t) => t.name)) === JSON.stringify([...namesBefore].reverse()));
 
 // ----------------------------------------------------------- time shift tool
 
