@@ -5,13 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev:choreo": "vite -c vite.choreo.config.ts",
+    "build": "tsc --noEmit && vite build && vite build -c vite.choreo.config.ts",
     "preview": "vite preview",
-    "test": "npm run test:model && npm run test:browser && npm run test:prod",
+    "test": "npm run test:model && npm run test:browser && npm run test:prod && npm run test:choreo",
     "test:model": "esbuild test/edits.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.tmp/edits.test.mjs --log-level=error && node node_modules/.tmp/edits.test.mjs",
     "test:browser": "node test/browser.test.mjs",
     "test:fixtures": "node test/fixtures/generate.mjs",
     "test:prod": "node test/production.test.mjs",
+    "test:choreo": "npm run test:choreo:model && npm run test:choreo:browser && npm run test:choreo:prod",
+    "test:choreo:model": "esbuild test/choreo-model.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.tmp/choreo-model.test.mjs --log-level=error && node node_modules/.tmp/choreo-model.test.mjs",
+    "test:choreo:browser": "node test/choreo-browser.test.mjs",
+    "test:choreo:prod": "node test/choreo-production.test.mjs",
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {

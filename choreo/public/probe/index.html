@@ -1,0 +1,394 @@
+<!doctype html>
+<!--
+  Phase 0 viability probe. Throwaway: delete once its questions are answered.
+
+  Answers, on her actual Chromebook with her actual iPhone clips:
+   1. Does the clip play in Chrome — real frames, not a black box with sound?
+   2. Can Web Audio decode the clip's soundtrack? (Auto-sync depends on it.)
+   3. Can OPFS hold clips this size, and how much room is there?
+
+  Plain HTML and JS, no build step, so nothing about the app can confuse the
+  answer. Needs HTTPS (or localhost) for OPFS.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choreo — device check</title>
+<link rel="icon" href="../icons/icon.svg">
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 24px; font: 15px/1.5 system-ui, sans-serif; background: #f6f1fb; color: #2c1250; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 20px; color: #6b5590; }
+  .step { background: #fff; border: 1px solid #d8cdea; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .step h2 { font-size: 16px; margin: 0 0 8px; }
+  button, label.pick { font: inherit; padding: 10px 16px; border-radius: 8px; border: 1px solid #7b3fe4; background: #7b3fe4; color: #fff; cursor: pointer; display: inline-block; }
+  button.secondary { background: #fff; color: #7b3fe4; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type=file] { display: none; }
+  .clip { border-top: 1px solid #eee; padding-top: 12px; margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .clip canvas { width: 200px; height: auto; background: #222; border-radius: 6px; flex: none; }
+  .clip ul { margin: 0; padding-left: 18px; flex: 1 1 320px; }
+  .ok { color: #1a7a1a; font-weight: 600; }
+  .bad { color: #b02020; font-weight: 600; }
+  .warn { color: #a05a00; font-weight: 600; }
+  textarea { width: 100%; box-sizing: border-box; height: 220px; font: 12px/1.4 ui-monospace, monospace; border-radius: 8px; border: 1px solid #d8cdea; padding: 10px; }
+  .verdict { font-size: 17px; font-weight: 600; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Choreo device check</h1>
+  <p class="lede">Checks whether this Chromebook can play, read and store iPhone rehearsal videos.
+    Nothing is uploaded anywhere — everything stays on this computer and is deleted afterwards.</p>
+
+  <section class="step">
+    <h2>1. Pick one or more rehearsal clips</h2>
+    <p>Best: one clip filmed with the iPhone's normal settings, and one filmed with
+      <em>Settings → Camera → Formats → Most Compatible</em>. Move them to the Chromebook the way you normally would.</p>
+    <label class="pick">Choose videos…<input id="files" type="file" accept="video/*,.mov,.mp4,.m4v" multiple></label>
+    <div id="clips"></div>
+  </section>
+
+  <section class="step">
+    <h2>2. Storage test</h2>
+    <p>Writes a 300 MB test file, reads it back, then deletes it. Takes up to a minute.</p>
+    <button id="storage">Run storage test</button>
+    <div id="storage-out"></div>
+  </section>
+
+  <section class="step">
+    <h2>3. Send the results</h2>
+    <p>Copy this and send it back, so the app can be set up for this Chromebook.</p>
+    <button id="copy" class="secondary">Copy results</button>
+    <textarea id="report" readonly></textarea>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+const NS = 'choreo-probe';
+const report = { userAgent: navigator.userAgent, secureContext: window.isSecureContext, clips: [], storage: null, codecs: null };
+const $ = (id) => document.getElementById(id);
+const fmtMB = (b) => (b / 1048576).toFixed(1) + ' MB';
+const pass = (ok, yes = 'yes', no = 'NO') => `<span class="${ok ? 'ok' : 'bad'}">${ok ? yes : no}</span>`;
+
+function render() { $('report').value = JSON.stringify(report, null, 2); }
+
+/** Every check is bounded: a hang must read as a failure, not as a frozen page. */
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)),
+  ]);
+}
+
+// ------------------------------------------------------------- codec support
+
+async function probeCodecs() {
+  const v = document.createElement('video');
+  const types = {
+    'h264 mp4': 'video/mp4; codecs="avc1.640028"',
+    'h264 quicktime': 'video/quicktime; codecs="avc1.640028"',
+    'hevc mp4': 'video/mp4; codecs="hvc1.1.6.L120.90"',
+    'hevc quicktime': 'video/quicktime; codecs="hvc1.1.6.L120.90"',
+  };
+  const out = {};
+  for (const [name, type] of Object.entries(types)) {
+    out[name] = { canPlayType: v.canPlayType(type) || '(empty)' };
+    if (navigator.mediaCapabilities) {
+      try {
+        const info = await navigator.mediaCapabilities.decodingInfo({
+          type: 'file',
+          video: { contentType: type.replace('quicktime', 'mp4'), width: 1920, height: 1080, bitrate: 10_000_000, framerate: 30 },
+        });
+        out[name].supported = info.supported;
+        out[name].smooth = info.smooth;
+        out[name].powerEfficient = info.powerEfficient;
+      } catch (e) {
+        out[name].error = String(e.message || e);
+      }
+    }
+  }
+  report.codecs = out;
+  render();
+}
+
+// ------------------------------------------------------- container sniffing
+
+/** The ftyp box says what wrapped the video: 'qt  ' is a .mov, 'mp42'/'isom' an mp4. */
+async function sniff(file) {
+  const head = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+  const text = String.fromCharCode(...head);
+  const at = text.indexOf('ftyp');
+  const brand = at >= 0 ? text.slice(at + 4, at + 8) : null;
+  // The codec fourcc lives in the stsd box, usually near the end for iPhone files.
+  // Scan the first and last 4 MB for it; cheap and good enough to name the codec.
+  const scan = async (blob) => {
+    const s = new TextDecoder('latin1').decode(new Uint8Array(await blob.arrayBuffer()));
+    if (s.includes('hvc1') || s.includes('hev1')) return 'hevc';
+    if (s.includes('avc1')) return 'h264';
+    return null;
+  };
+  const codec = (await scan(file.slice(Math.max(0, file.size - 4194304)))) ?? (await scan(file.slice(0, 4194304)));
+  return { brand, codec };
+}
+
+// ------------------------------------------------------------- playback test
+
+function playbackTest(file, canvas) {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  const result = { loadedMetadata: false, width: 0, height: 0, duration: 0, framesPainted: 0, frameHasContent: false, error: null };
+
+  const run = new Promise((resolve) => {
+    video.onerror = () => {
+      result.error = video.error ? `MediaError ${video.error.code}: ${video.error.message || ''}` : 'unknown error';
+      resolve();
+    };
+    video.onloadedmetadata = async () => {
+      result.loadedMetadata = true;
+      result.width = video.videoWidth;
+      result.height = video.videoHeight;
+      result.duration = +video.duration.toFixed(2);
+      // A decoder that cannot handle the codec often still reports metadata and
+      // plays the audio, so count frames actually presented to the compositor.
+      if ('requestVideoFrameCallback' in video) {
+        const onFrame = () => {
+          result.framesPainted += 1;
+          if (result.framesPainted < 30) video.requestVideoFrameCallback(onFrame);
+        };
+        video.requestVideoFrameCallback(onFrame);
+      }
+      try {
+        video.currentTime = Math.min(1, video.duration / 2);
+        await video.play();
+      } catch (e) {
+        result.error = 'play() rejected: ' + (e.message || e);
+      }
+      setTimeout(() => {
+        video.pause();
+        // Draw what Chrome decoded. A real frame has variance; a failed decode is flat black.
+        if (video.videoWidth) {
+          canvas.width = 320;
+          canvas.height = Math.round((320 * video.videoHeight) / video.videoWidth);
+          const g = canvas.getContext('2d', { willReadFrequently: true });
+          g.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const px = g.getImageData(0, 0, canvas.width, canvas.height).data;
+          let sum = 0, sumSq = 0, n = 0;
+          for (let i = 0; i < px.length; i += 16) {
+            const l = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+            sum += l; sumSq += l * l; n += 1;
+          }
+          const mean = sum / n;
+          result.frameMeanLuma = +mean.toFixed(1);
+          result.frameLumaStdDev = +Math.sqrt(Math.max(0, sumSq / n - mean * mean)).toFixed(1);
+          result.frameHasContent = result.frameLumaStdDev > 4 || mean > 12;
+        }
+        resolve();
+      }, 1500);
+    };
+  });
+
+  video.src = url;
+  return withTimeout(run, 20000, 'playback')
+    .catch((e) => { result.error = String(e.message); })
+    .then(() => { URL.revokeObjectURL(url); video.removeAttribute('src'); video.load(); return result; });
+}
+
+// -------------------------------------------------------- audio decode test
+
+async function audioTest(file) {
+  const result = { decoded: false };
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const t0 = performance.now();
+    const buf = await withTimeout(ctx.decodeAudioData(await file.arrayBuffer()), 60000, 'audio decode');
+    result.decoded = true;
+    result.seconds = +buf.duration.toFixed(2);
+    result.channels = buf.numberOfChannels;
+    result.sampleRate = buf.sampleRate;
+    result.decodeMs = Math.round(performance.now() - t0);
+    let peak = 0;
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i += 7) peak = Math.max(peak, Math.abs(d[i]));
+    result.peakDb = peak > 0 ? +(20 * Math.log10(peak)).toFixed(1) : -Infinity;
+  } catch (e) {
+    result.error = String(e.message || e);
+  } finally {
+    ctx.close();
+  }
+  return result;
+}
+
+// ------------------------------------------------------------- OPFS helpers
+
+async function nsDir() {
+  const root = await navigator.storage.getDirectory();
+  return root.getDirectoryHandle(NS, { create: true });
+}
+
+async function opfsWrite(name, blob) {
+  const dir = await nsDir();
+  const fh = await dir.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  try { await w.write(blob); } finally { await w.close(); }
+  return (await dir.getFileHandle(name)).getFile();
+}
+
+async function bytesEqual(a, b) {
+  const [x, y] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]);
+  if (x.byteLength !== y.byteLength) return false;
+  const u = new Uint8Array(x), v = new Uint8Array(y);
+  for (let i = 0; i < u.length; i += 1) if (u[i] !== v[i]) return false;
+  return true;
+}
+
+async function cleanup() {
+  try { await (await navigator.storage.getDirectory()).removeEntry(NS, { recursive: true }); } catch {}
+}
+
+async function storeClipTest(file) {
+  if (!window.isSecureContext || !navigator.storage?.getDirectory) return { error: 'OPFS unavailable (not HTTPS?)' };
+  const result = {};
+  try {
+    const t0 = performance.now();
+    const back = await withTimeout(opfsWrite('clip', file), 120000, 'clip write');
+    result.writeMs = Math.round(performance.now() - t0);
+    result.sizeMatches = back.size === file.size;
+    const MB = 1048576;
+    result.headMatches = await bytesEqual(back.slice(0, MB), file.slice(0, MB));
+    result.tailMatches = await bytesEqual(back.slice(-MB), file.slice(-MB));
+    // The real app will play videos straight out of OPFS, so prove that path too.
+    const v = document.createElement('video');
+    v.muted = true;
+    const url = URL.createObjectURL(back);
+    result.playsFromStorage = await withTimeout(new Promise((res) => {
+      v.onloadeddata = () => res(true);
+      v.onerror = () => res(false);
+      v.src = url;
+    }), 15000, 'replay').catch(() => false);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    result.error = String(e.message || e);
+  } finally {
+    await cleanup();
+  }
+  return result;
+}
+
+// ------------------------------------------------------------------- clips
+
+$('files').addEventListener('change', async (event) => {
+  const files = [...event.target.files];
+  event.target.value = '';
+  for (const file of files) {
+    const box = document.createElement('div');
+    box.className = 'clip';
+    const canvas = document.createElement('canvas');
+    canvas.width = 320; canvas.height = 180;
+    const list = document.createElement('ul');
+    box.append(canvas, list);
+    $('clips').append(box);
+    list.innerHTML = `<li><b>${file.name}</b> — ${fmtMB(file.size)} — checking…</li>`;
+
+    const entry = { name: file.name, sizeMB: +(file.size / 1048576).toFixed(1), mime: file.type || '(none)' };
+    report.clips.push(entry);
+    Object.assign(entry, await sniff(file));
+    entry.playback = await playbackTest(file, canvas);
+    entry.audio = await audioTest(file);
+    entry.storage = await storeClipTest(file);
+    render();
+
+    const p = entry.playback, a = entry.audio, s = entry.storage;
+    const plays = p.loadedMetadata && !p.error && p.framesPainted > 0 && p.frameHasContent;
+    list.innerHTML = `
+      <li><b>${file.name}</b> — ${fmtMB(file.size)} — ${entry.codec ? entry.codec.toUpperCase() : 'unknown codec'} in ${entry.brand === 'qt  ' ? 'a .mov' : entry.brand ? 'an .mp4' : 'an unknown container'}</li>
+      <li>Video plays: ${pass(plays)} ${p.width ? `(${p.width}×${p.height}, ${p.duration}s, ${p.framesPainted} frames drawn)` : ''} ${p.error ? `<br><small>${p.error}</small>` : ''}</li>
+      <li>Soundtrack readable: ${pass(a.decoded)} ${a.decoded ? `(${a.seconds}s, ${a.channels}ch, ${a.sampleRate} Hz, decoded in ${a.decodeMs} ms)` : `<small>${a.error ?? ''}</small>`}</li>
+      <li>Stores and reads back intact: ${pass(s.sizeMatches && s.headMatches && s.tailMatches)} ${s.writeMs != null ? `(wrote in ${s.writeMs} ms)` : ''} ${s.error ? `<small>${s.error}</small>` : ''}</li>
+      <li>Plays from storage: ${pass(!!s.playsFromStorage)}</li>
+      <li class="verdict">${plays && a.decoded ? '<span class="ok">✓ This clip will work.</span>'
+        : !plays && entry.codec === 'hevc' ? '<span class="bad">✗ This Chromebook can’t show this video. Switch the iPhone to “Most Compatible” and try a new clip.</span>'
+        : '<span class="warn">Something didn’t work — send the results.</span>'}</li>`;
+  }
+});
+
+// ---------------------------------------------------------------- storage
+
+$('storage').addEventListener('click', async () => {
+  const btn = $('storage');
+  const out = $('storage-out');
+  btn.disabled = true;
+  out.textContent = 'Running…';
+  const r = {};
+  try {
+    if (!window.isSecureContext || !navigator.storage?.getDirectory) throw new Error('OPFS unavailable (not HTTPS?)');
+    const est0 = await navigator.storage.estimate();
+    r.quotaGB = +(est0.quota / 1073741824).toFixed(2);
+    r.usageMBBefore = +(est0.usage / 1048576).toFixed(1);
+    r.persisted = await navigator.storage.persisted();
+    r.persistGranted = r.persisted || (await navigator.storage.persist().catch(() => false));
+
+    // 300 MB in 10 MB pieces of non-repeating bytes, so nothing can compress it.
+    const piece = new Uint8Array(10 * 1048576);
+    crypto.getRandomValues(piece.subarray(0, 65536));
+    for (let i = 65536; i < piece.length; i += 1) piece[i] = piece[i - 65536] ^ (i & 0xff);
+    const dir = await nsDir();
+    const fh = await dir.getFileHandle('big', { create: true });
+    const w = await fh.createWritable();
+    const t0 = performance.now();
+    try {
+      for (let i = 0; i < 30; i += 1) {
+        await w.write(piece);
+        out.textContent = `Writing… ${(i + 1) * 10} / 300 MB`;
+      }
+    } finally {
+      await w.close();
+    }
+    r.write300MBms = Math.round(performance.now() - t0);
+    const file = await (await dir.getFileHandle('big')).getFile();
+    r.sizeMatches = file.size === 30 * piece.length;
+    const t1 = performance.now();
+    const tail = new Uint8Array(await file.slice(file.size - piece.length).arrayBuffer());
+    r.readLast10MBms = Math.round(performance.now() - t1);
+    r.contentMatches = tail.every((b, i) => b === piece[i]);
+    const est1 = await navigator.storage.estimate();
+    r.usageGrewMB = +((est1.usage - est0.usage) / 1048576).toFixed(1);
+  } catch (e) {
+    r.error = String(e.message || e);
+  } finally {
+    await cleanup();
+  }
+  report.storage = r;
+  render();
+  btn.disabled = false;
+  out.innerHTML = r.error ? `<p class="bad">${r.error}</p>` : `<ul>
+    <li>Room for videos: <b>${r.quotaGB} GB</b></li>
+    <li>300 MB written and read back intact: ${pass(r.sizeMatches && r.contentMatches)} (${(r.write300MBms / 1000).toFixed(1)} s)</li>
+    <li>Protected from automatic cleanup: ${r.persistGranted ? '<span class="ok">yes</span>' : '<span class="warn">not yet</span> (normal until the app is installed)'}</li></ul>`;
+});
+
+$('copy').addEventListener('click', async () => {
+  render();
+  try {
+    await navigator.clipboard.writeText($('report').value);
+    $('copy').textContent = 'Copied ✓';
+  } catch {
+    $('report').select();
+    $('copy').textContent = 'Select-all done — press Ctrl+C';
+  }
+});
+
+void cleanup();
+void probeCodecs();
+render();
+</script>
+</body>
+</html>

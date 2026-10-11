@@ -53,6 +53,13 @@ region would otherwise look identical to an untouched one. Fades are drawn into
 the waveform shape and effect regions get a tinted band and a label, so "where
 did I censor?" has a visible answer.
 
+## Choreo, alongside
+
+A second app, a choreography assistant, is built from this repo and deployed
+beside this one at `/song-editor/choreo/`. It has its own build, service worker
+and storage, and reuses this app's decoding and storage code without changing
+it. See [choreo/README.md](choreo/README.md).
+
 ## Design
 
 The load-bearing decision is that **decoded audio is immutable and every edit is

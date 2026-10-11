@@ -24,6 +24,10 @@ const TARGETS = [
   ['assets/icon.svg', 'public/icons/icon-192.png', 192],
   ['assets/icon.svg', 'public/icons/icon-512.png', 512],
   ['assets/icon-maskable.svg', 'public/icons/icon-maskable-512.png', 512],
+  // The choreography app, which has its own identity.
+  ['choreo/assets/icon.svg', 'choreo/public/icons/icon-192.png', 192],
+  ['choreo/assets/icon.svg', 'choreo/public/icons/icon-512.png', 512],
+  ['choreo/assets/icon-maskable.svg', 'choreo/public/icons/icon-maskable-512.png', 512],
 ];
 
 const browser = await puppeteer.launch({
@@ -48,5 +52,7 @@ for (const [source, output, size] of TARGETS) {
 // keeping it the same file guarantees the tab and the shelf never disagree.
 copyFileSync(join(ROOT, 'assets/icon.svg'), join(ROOT, 'public/icons/icon.svg'));
 console.log('public/icons/icon.svg  (browser tab)');
+copyFileSync(join(ROOT, 'choreo/assets/icon.svg'), join(ROOT, 'choreo/public/icons/icon.svg'));
+console.log('choreo/public/icons/icon.svg  (browser tab)');
 
 await browser.close();

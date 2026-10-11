@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Full-bleed for the ChromeOS shelf mask: artwork kept inside the 80% safe zone. -->
+  <rect width="512" height="512" fill="#1F1E24"/>
+  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <circle cx="256" cy="178" r="70" fill="none" stroke="#F2A541" stroke-width="40"/>
+    <circle cx="256" cy="322" r="84" fill="none" stroke="#F2A541" stroke-width="40"/>
+    <g fill="#ECEAF0">
+      <circle cx="96" cy="448" r="14"/><circle cx="142" cy="448" r="14"/><circle cx="188" cy="448" r="14"/><circle cx="234" cy="448" r="14"/>
+      <circle cx="280" cy="448" r="14"/><circle cx="326" cy="448" r="14"/><circle cx="372" cy="448" r="14"/><circle cx="418" cy="448" r="14"/>
+    </g>
+    <circle cx="96" cy="448" r="20" fill="#F2A541"/>
+  </g>
+</svg>

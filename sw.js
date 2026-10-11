@@ -18,7 +18,8 @@
  * the first time.
  */
 
-const CACHE = 'song-editor-%CACHE_VERSION%';
+const PREFIX = 'song-editor-';
+const CACHE = `${PREFIX}%CACHE_VERSION%`;
 
 /** Hashed build output, safe to treat as immutable. */
 const IMMUTABLE = new URL('assets/', self.registration.scope).pathname;
@@ -33,8 +34,12 @@ self.addEventListener('activate', (event) => {
     (async () => {
       // Each build gets its own cache name, so a deploy drops the last one
       // wholesale rather than leaving stale entries to be reasoned about.
+      //
+      // Only this app's own caches, though. Cache storage belongs to the whole
+      // origin, and every app on the site shares it — deleting every name but
+      // ours would wipe the neighbouring app's offline copy on each deploy.
       for (const key of await caches.keys()) {
-        if (key !== CACHE) await caches.delete(key);
+        if (key.startsWith(PREFIX) && key !== CACHE) await caches.delete(key);
       }
       await self.clients.claim();
     })(),
