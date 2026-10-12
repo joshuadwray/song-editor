@@ -189,7 +189,8 @@ stylesheet on a "count sheet" view would do; no export format needed.
   the box undoes whole notes (typing in one 8-count within 1.5 s is one step).
 - **Fonts** are system fonts (the mockup used IBM Plex); bundling a font would
   have to be served locally to keep working offline.
-- **Name, icon, palette** are placeholders in `choreo/app.config.ts`.
+- **Name and icon** are placeholders (`choreo/app.config.ts`, `choreo/assets/`). The
+  palette is Alainacity's, imported from `theme.config.ts`, so retheme there.
 - **The dev-server probe URL** is `/probe/index.html` (on the live site `/probe/` works).
 - **Delete the probe page** (`choreo/public/probe/`) once Phase 0 is answered,
   and its check in `test/choreo-production.test.mjs`.

@@ -5,10 +5,15 @@
  * free to change, but it must never be coupled to the URL path (/choreo/) or to
  * the storage key in src/choreo/storage.ts, which are fixed for good.
  *
- * Dark by default, unlike Alainacity: this app is mostly for watching video,
- * and a dark surround makes video read better and keeps the studio screen
- * from glaring.
+ * The colours are Alainacity's, taken from its theme.config.ts rather than
+ * copied, so the two apps look like a pair and a retheme of Alainacity carries
+ * over here by itself. This file only decides which of its colours plays which
+ * role in this app.
  */
+
+// Explicit extension: the production test loads this module in Node, which
+// resolves imports literally rather than the way a bundler does.
+import { CANVAS, CHROME } from '../theme.config.ts';
 
 export const APP_NAME = 'Choreo';
 
@@ -16,38 +21,45 @@ export const APP_DESCRIPTION =
   'Count out a song in 8-counts and build a dance on top of it: notes, sections and rehearsal video.';
 
 export const PALETTE = {
-  bg: '#16151a',
-  panel: '#1f1e24',
-  panelRaised: '#24232a',
-  sunken: '#18171c',
-  border: '#2e2c35',
-  borderStrong: '#3a3843',
-  text: '#eceaf0',
-  textDim: '#a09cab',
-  textFaint: '#6e6a7a',
+  bg: CHROME.chrome,
+  panel: CHROME.chromeLight,
+  /** Buttons and text boxes. */
+  surface: CHROME.surface,
+  border: CHROME.chromeDark,
+  borderStrong: CHROME.border,
+  text: CHROME.text,
+  textDim: CHROME.textDim,
+  textFaint: CHROME.disabled,
   /** Count 1, the playhead's 8-count, primary buttons. */
-  accent: '#f2a541',
-  accentSoft: '#3b2c14',
-  accentText: '#16151a',
-  accentLight: '#ffd08a',
-  /** Rehearsal video, from phase 2. */
-  video: '#5cc8c2',
-  videoSoft: '#1f3a39',
-  danger: '#ff8a80',
-  dangerBg: '#3a1c1f',
-  ok: '#8fd18f',
-  waveform: '#6e6a7a',
-  waveformPlayed: '#b9b4c6',
-  playhead: '#ff6b5e',
+  accent: CHROME.accent,
+  accentDeep: CHROME.accentDeep,
+  accentSoft: CHROME.accentSoft,
+  accentText: CHROME.accentText,
+  accentTextDim: CHROME.accentTextDim,
+  /**
+   * The big count display: Alainacity's hardware-style transport read-out,
+   * dark plum with peach digits, legible from across the studio.
+   */
+  readoutBg: CHROME.readoutBg,
+  readoutText: CHROME.readoutText,
+  danger: CHROME.danger,
+  dangerBg: CHROME.dangerBg,
+  ok: CHROME.play,
+  /** The waveform stays Audacity blue, as in Alainacity. */
+  waveform: CANVAS.peak,
+  waveformBg: CANVAS.trackBg,
+  playhead: CANVAS.playhead,
 } as const;
 
 /**
  * Section colours, by index. A piece stores the index, not the colour, so
  * changing these recolours every saved piece rather than stranding old ones.
+ * Pale, so the dark section name stays readable on every one of them.
  */
-export const SECTION_COLORS = ['#7b6ff0', '#e0699a', '#4fb3d9', '#8fd18f', '#e8a35b', '#c58be6'] as const;
+export const SECTION_COLORS = ['#c9b6f7', '#f6b3c8', '#a9d8f0', '#b9e4b0', '#ffcba4', '#e4c1f2'] as const;
 
-export const THEME_COLOR = PALETTE.panel;
+/** Shown in the ChromeOS window frame and the install prompt — the same as Alainacity's. */
+export const THEME_COLOR = PALETTE.accent;
 export const BACKGROUND_COLOR = PALETTE.bg;
 
 const KEBAB = /[A-Z]/g;

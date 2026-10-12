@@ -182,7 +182,7 @@ const WaveCell = memo(function WaveCell(
 ) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (ref.current) drawColumn(ref.current, peaks, t0, t1, end, { wave: PALETTE.waveformPlayed, gap: 'rgba(0,0,0,0.35)' });
+    if (ref.current) drawColumn(ref.current, peaks, t0, t1, end, { wave: PALETTE.waveform, gap: PALETTE.border });
   }, [peaks, colW, t0, t1, end]);
   return (
     <div className={`tl-cell wave-cell ${selected ? 'sel' : ''}`} style={{ width: colW }}>

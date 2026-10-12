@@ -6,7 +6,8 @@ the dance she adds notes and section names to those counts, and in later
 phases, rehearsal video and formations.
 
 Deployed at `…/song-editor/choreo/`. The name is a placeholder; change it in
-`choreo/app.config.ts` and nowhere else.
+`choreo/app.config.ts` and nowhere else. The colours are Alainacity's, read from
+its `theme.config.ts`, so the two apps stay a matching pair.
 
 ## Status
 
